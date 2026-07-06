@@ -1,4 +1,6 @@
 import {io, Socket} from 'socket.io-client'
+import * as fs from 'node:fs/promises'
+import {join} from 'node:path'
 import {SyncManager} from '../../sync/sync-manager.js'
 import {MemoryGraphStore} from '../../../../agent/infra/memory/memory-graph-store.js'
 import {processLog} from '../../../utils/process-logger.js'
@@ -170,6 +172,20 @@ export class AgentSyncHandler {
       // Merge remote data into graph store and save
       graphStore.merge(remotePayload)
       await graphStore.save(projectPath)
+
+      // Write pulled files back to project workspace
+      if (remotePayload.files) {
+        for (const [filename, fileData] of Object.entries(remotePayload.files)) {
+          if (fileData && typeof fileData === 'object' && 'rawContent' in fileData) {
+            const rawContent = (fileData as any).rawContent
+            if (rawContent && rawContent.trim().length > 0) {
+              const filePath = join(projectPath, filename)
+              await fs.writeFile(filePath, rawContent, 'utf8')
+              processLog(`[AgentSync] Wrote pulled instruction file: ${filename} to ${filePath}`)
+            }
+          }
+        }
+      }
 
       return {message: 'Sync completed successfully'}
     })
