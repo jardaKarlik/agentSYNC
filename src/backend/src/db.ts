@@ -96,6 +96,19 @@ export class AgentSyncDatabase {
         )
       `)
 
+      // 6. Workstation Agent Instructions (v2 support)
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS sync_instructions_v2 (
+          workstation_id TEXT NOT NULL,
+          agent_name TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          identity TEXT NOT NULL,
+          shared_rules TEXT NOT NULL,
+          timestamp BIGINT NOT NULL,
+          PRIMARY KEY (workstation_id, agent_name, filename)
+        )
+      `)
+
       await client.query('COMMIT')
     } catch (error) {
       await client.query('ROLLBACK')
@@ -159,5 +172,53 @@ export class AgentSyncDatabase {
     } finally {
       client.release()
     }
+  }
+
+  /**
+   * Save instruction file configuration for a specific workstation/agent.
+   */
+  public async saveInstructions(
+    workstationId: string,
+    agentName: string,
+    filename: string,
+    identity: string,
+    sharedRules: string,
+    timestamp: number
+  ): Promise<void> {
+    const client = await this.pool.connect()
+    try {
+      await client.query(`
+        INSERT INTO sync_instructions_v2 (workstation_id, agent_name, filename, identity, shared_rules, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (workstation_id, agent_name, filename) DO UPDATE SET
+          identity = EXCLUDED.identity,
+          shared_rules = EXCLUDED.shared_rules,
+          timestamp = EXCLUDED.timestamp
+      `, [workstationId, agentName, filename, identity, sharedRules, timestamp])
+    } finally {
+      client.release()
+    }
+  }
+
+  /**
+   * Get all instruction files for a specific workstation/agent.
+   */
+  public async getInstructions(workstationId: string, agentName: string): Promise<any[]> {
+    const res = await this.pool.query(
+      'SELECT * FROM sync_instructions_v2 WHERE workstation_id = $1 AND agent_name = $2',
+      [workstationId, agentName]
+    )
+    return res.rows
+  }
+
+  /**
+   * Get list of all registered workstations and agents.
+   */
+  public async getRegisteredWorkstations(): Promise<Array<{workstationId: string, agentName: string}>> {
+    const res = await this.pool.query('SELECT DISTINCT workstation_id, agent_name FROM sync_instructions_v2')
+    return res.rows.map(row => ({
+      workstationId: row.workstation_id,
+      agentName: row.agent_name
+    }))
   }
 }
