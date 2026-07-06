@@ -21,7 +21,7 @@ export class AgentSyncHandler {
   private readonly billingService: AgentSyncHandlerDeps['billingService']
   private readonly resolveProjectPath: AgentSyncHandlerDeps['resolveProjectPath']
   private socket: Socket | null = null
-  private readonly backendUrl = process.env.AGENTSYNC_BACKEND_URL || 'https://agentsync-backend-production.up.railway.app'
+  private readonly backendUrl = process.env.AGENTSYNC_BACKEND_URL || 'https://agentsync.up.railway.app'
 
   constructor(deps: AgentSyncHandlerDeps) {
     this.transport = deps.transport
