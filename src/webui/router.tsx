@@ -1,5 +1,6 @@
 import {createBrowserRouter} from 'react-router-dom'
 
+import {AgentSyncControlPanel} from './features/agentsync/components/agentsync-control-panel'
 import {ProjectGuard} from './features/project/components/project-guard'
 import {MainLayout} from './layouts/main-layout'
 import {AnalyticsPage} from './pages/analytics-page'
@@ -51,6 +52,10 @@ export const router = createBrowserRouter([
           {
             element: <TasksPage />,
             path: 'tasks',
+          },
+          {
+            element: <AgentSyncControlPanel />,
+            path: 'agentsync',
           },
           {
             element: <NotFoundPage />,

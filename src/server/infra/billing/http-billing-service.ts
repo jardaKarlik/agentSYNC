@@ -71,6 +71,15 @@ export class HttpBillingService implements IBillingService {
     })
   }
 
+  public async isPaidUser(sessionKey: string): Promise<boolean> {
+    try {
+      const tiers = await this.getTiers(sessionKey)
+      return tiers.some((t) => t.tier === 'PRO' || t.tier === 'TEAM')
+    } catch {
+      return false
+    }
+  }
+
   private async fetchRawUsages(sessionKey: string): Promise<RawUsage[]> {
     try {
       const httpClient = new AuthenticatedHttpClient(sessionKey)

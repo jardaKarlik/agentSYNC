@@ -23,6 +23,7 @@
  */
 
 import {GlobalInstanceManager} from '@campfirein/brv-transport-client'
+import {config as loadEnv} from 'dotenv'
 import express from 'express'
 import {fork, type StdioOptions} from 'node:child_process'
 import {mkdirSync, readdirSync, readFileSync, unlinkSync} from 'node:fs'
@@ -144,6 +145,11 @@ function cleanupOldLogs(logsDir: string, keep: number): void {
 }
 
 async function main(): Promise<void> {
+  const currentDir = dirname(fileURLToPath(import.meta.url))
+  const rootDir = join(currentDir, '..', '..', '..', '..')
+  const envName = process.env.BRV_ENV === 'production' ? '.env.production' : '.env.development'
+  loadEnv({path: join(rootDir, envName)})
+
   // 1. Setup daemon logging at <global-data-dir>/logs/server-<timestamp>.log
   const daemonLogsDir = join(getGlobalDataDir(), 'logs')
   mkdirSync(daemonLogsDir, {recursive: true})

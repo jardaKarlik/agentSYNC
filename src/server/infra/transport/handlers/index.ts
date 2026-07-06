@@ -1,3 +1,5 @@
+export {AgentSyncHandler} from './agentsync-handler.js'
+export type {AgentSyncHandlerDeps} from './agentsync-handler.js'
 export {AuthHandler} from './auth-handler.js'
 export type {AuthHandlerDeps} from './auth-handler.js'
 export {BillingHandler} from './billing-handler.js'

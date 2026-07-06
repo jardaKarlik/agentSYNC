@@ -15,7 +15,7 @@ import type {McpStartupProjectContext} from './tools/mcp-project-context.js'
 import {TransportClientEventNames} from '../../core/domain/transport/schemas.js'
 import {resolveLocalServerMainPath} from '../../utils/server-main-resolver.js'
 import {detectMcpMode, type McpMode} from './mcp-mode-detector.js'
-import {registerBrvCurateTool, registerBrvQueryTool} from './tools/index.js'
+import {registerBrvCurateTool, registerBrvQueryTool, registerAgentSyncTools} from './tools/index.js'
 
 export interface McpServerConfig {
   /** CLI version for MCP server identification */
@@ -96,6 +96,10 @@ export class ByteRoverMcpServer {
       () => this.getWorkingDirectory(),
       getStartupProjectContext,
       config.version,
+    )
+    registerAgentSyncTools(
+      this.server,
+      () => this.client,
     )
   }
 

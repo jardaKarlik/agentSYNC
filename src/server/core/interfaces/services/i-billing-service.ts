@@ -24,6 +24,11 @@ export interface IBillingService {
   getTiers: (sessionKey: string) => Promise<BillingOrganizationTierDTO[]>
 
   /**
+   * Helper to check if a user is a paid user (having at least one PAID/PRO organization).
+   */
+  isPaidUser: (sessionKey: string) => Promise<boolean>
+
+  /**
    * Fetches usage for every organization the authenticated user belongs to in
    * a single round trip. Replaces the old per-org `getUsageByProjects` fan-out.
    *

@@ -54,6 +54,7 @@ import {createTokenStore} from '../storage/token-store.js'
 import {HttpTeamService} from '../team/http-team-service.js'
 import {FsTemplateLoader} from '../template/fs-template-loader.js'
 import {
+  AgentSyncHandler,
   AuthHandler,
   BillingHandler,
   ConfigHandler,
@@ -135,6 +136,11 @@ export async function setupFeatureHandlers({
   // Global handlers (no project context needed)
   new ConfigHandler({transport}).setup()
   new SettingsHandler({store: settingsStore, transport}).setup()
+  new AgentSyncHandler({
+    billingService,
+    resolveProjectPath,
+    transport,
+  }).setup()
 
   new AuthHandler({
     authService: new OAuthService(authConfig),
