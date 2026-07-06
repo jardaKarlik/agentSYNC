@@ -1,6 +1,7 @@
 import {io, Socket} from 'socket.io-client'
 import {SyncManager} from '../../sync/sync-manager.js'
 import {MemoryGraphStore} from '../../../../agent/infra/memory/memory-graph-store.js'
+import {processLog} from '../../../utils/process-logger.js'
 import {ProjectPathResolver, resolveRequiredProjectPath} from './handler-types.js'
 
 export interface AgentSyncHandlerDeps {
@@ -24,6 +25,66 @@ export class AgentSyncHandler {
     this.transport = deps.transport
     this.billingService = deps.billingService
     this.resolveProjectPath = deps.resolveProjectPath
+  }
+
+  /**
+   * Auto-seed memory graph from instruction files (agent.md, soul.md)
+   * if the graph is empty. This ensures file content is available in the graph.
+   */
+  private async seedMemoryGraphFromFiles(
+    projectPath: string,
+    syncManager: SyncManager,
+    graphStore: MemoryGraphStore,
+    workstationId: string,
+  ): Promise<void> {
+    processLog(`[AgentSync] Seeding check: graph currently has ${graphStore.getNodes().length} nodes`)
+    // Only seed if graph is currently empty
+    if (graphStore.getNodes().length > 0) {
+      return
+    }
+
+    const filesToSeed = ['agent.md', 'soul.md']
+
+    for (const filename of filesToSeed) {
+      try {
+        processLog(`[AgentSync] Parsing instruction file: ${filename}`)
+        const parsed = await syncManager.parseInstructionFile(filename)
+        processLog(`[AgentSync] Parsed ${filename}: sharedRulesLength=${parsed.sharedRules.length}, identityLength=${parsed.identity.length}`)
+
+        // Create a node for shared rules section
+        if (parsed.sharedRules && parsed.sharedRules.trim().length > 0) {
+          graphStore.createNode({
+            type: 'rule',
+            title: `${filename}: Shared Guidelines`,
+            content: parsed.sharedRules,
+            sourceWorkstation: workstationId,
+          })
+          processLog(`[AgentSync] Created node for ${filename} shared rules`)
+        }
+
+        // Create a node for workstation identity section
+        if (parsed.identity && parsed.identity.trim().length > 0) {
+          graphStore.createNode({
+            type: 'profile',
+            title: `${filename}: Workstation Identity`,
+            content: parsed.identity,
+            sourceWorkstation: workstationId,
+          })
+          processLog(`[AgentSync] Created node for ${filename} workstation identity`)
+        }
+      } catch (error) {
+        // Skip file if it doesn't exist or can't be parsed
+        processLog(`[AgentSync] Warning: Could not seed from ${filename}: ${error instanceof Error ? error.stack : String(error)}`)
+      }
+    }
+
+    // Save the seeded graph
+    if (graphStore.getNodes().length > 0) {
+      await graphStore.save(projectPath)
+      processLog(`[AgentSync] Seeded memory graph with ${graphStore.getNodes().length} nodes`)
+    } else {
+      processLog(`[AgentSync] No nodes generated during seeding`)
+    }
   }
 
   public setup(): void {
@@ -58,21 +119,30 @@ export class AgentSyncHandler {
       const graphStore = new MemoryGraphStore()
       await graphStore.load(projectPath)
 
+      // Auto-seed graph from instruction files if empty
+      await this.seedMemoryGraphFromFiles(projectPath, syncManager, graphStore, payload.workstationId)
+
       const socket = this.getSocket()
+
+      // Build push payload
+      const pushPayload = {
+        edges: graphStore.getEdges(),
+        edgeTombstones: graphStore.getEdgeTombstones(),
+        nodes: graphStore.getNodes(),
+        nodeTombstones: graphStore.getNodeTombstones(),
+        files: filePayload.files,
+        workstationId: payload.workstationId,
+        agentName: payload.agentName,
+      }
+
+      // Log payload for debugging
+      processLog(`[AgentSync] Sending push payload: nodeCount=${pushPayload.nodes.length}, edgeCount=${pushPayload.edges.length}, filesIncluded=${Object.keys(pushPayload.files).join(',')}, workstationId=${pushPayload.workstationId}, agentName=${pushPayload.agentName}`)
 
       // Push local data
       await new Promise<void>((resolve, reject) => {
         socket.emit(
           'agentsync:push',
-          {
-            edges: graphStore.getEdges(),
-            edgeTombstones: graphStore.getEdgeTombstones(),
-            nodes: graphStore.getNodes(),
-            nodeTombstones: graphStore.getNodeTombstones(),
-            files: filePayload.files,
-            workstationId: payload.workstationId,
-            agentName: payload.agentName,
-          },
+          pushPayload,
           (res: any) => {
             if (res && res.error) {
               reject(new Error(res.error))
